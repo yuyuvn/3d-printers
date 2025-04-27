@@ -2,6 +2,27 @@
 /**
  * Simple case for a ESP32-Wroom-32D DevKitc V4
  */
+ 
+pcb = [52, 28.5, 2.5]; // size of the PCB
+walls = 1; // wallthickness
+pinrow = [42, 3, 30]; // size of the pin rows
+pinrow_hardpart = 10; // the material size of pinrow
+antenna = 18.5; // width of the antenna
+usb = 10; // width of the usb (a little wider to accomodate fat plugs)
+tolerance = 0.23; // tolerance for the snap fit
+
+// RJ45 extension parameters
+enable_head_extension = true; // Enable extension at the head (antenna side)
+enable_tail_extension = false; // Enable extension at the tail (USB side)
+rj45_pcb = [28.2, 34.2, 3];
+rj45_port_size = [18, 16, 13];
+rj45_pcb_board_lip = 10; // size of the lip to keep the rj45 pcb in place
+extension_space = [rj45_pcb.x+20, rj45_pcb.y, rj45_port_size.z]; // Size of the extension. High not include pcb size.
+// pillar_diameter = 2;
+
+print_part();
+// print_part("bottom_covered_pins");
+// print_part("lid_honeycomb");
 
 /* START primitives.scad*/
 /**
@@ -141,23 +162,6 @@ module choneycomb(v, size, walls) {
 }
 /* END honeycomb.scad*/
 
-pcb = [48.5, 28.5, 2]; // size of the PCB
-walls = 1; // wallthickness
-pinrow = [38.5, 3, 20]; // size of the pin rows
-antenna = 18.5; // width of the antenna
-usb = 10; // width of the usb (a little wider to accomodate fat plugs)
-tolerance = 0.23; // tolerance for the snap fit
-
-// RJ45 extension parameters
-enable_head_extension = true; // Enable extension at the head (antenna side)
-enable_tail_extension = false; // Enable extension at the tail (USB side)
-rj45_pcb = [28, 34, 2];
-rj45_port_size = [18, 16, 13];
-extension_space = [rj45_pcb.x+20, rj45_pcb.y, rj45_port_size.z+rj45_pcb.z]; // Size of the extension
-// pillar_diameter = 2;
-
-print_part();
-
 /**
  * Prints the selected part
  *
@@ -191,20 +195,20 @@ module rimWithAntenna() {
             
             // Head extension (antenna side)
             if (enable_head_extension) {
-                translate([-1 * (pcb.x/2 + extension_space.x/2), 0, 0])
-                    ccube([extension_space.x, width + walls*2, height]);
+                translate([-1 * (pcb.x/2 + extension_space.x/2 + walls), 0, 0])
+                    ccube([extension_space.x + walls*2, width + walls*2, height]);
             }
             
             // Tail extension (USB side)
             if (enable_tail_extension) {
-                translate([pcb.x/2 + extension_space.x/2, 0, 0])
-                    ccube([extension_space.x, width + walls*2, height]);
+                translate([pcb.x/2 + extension_space.x/2 + walls, 0, 0])
+                    ccube([extension_space.x + walls*2, width + walls*2, height]);
             }
         }
         
         // Main cutout
         ccube(pcb);
-        translate([0,0,pcb.z]) ccube([pcb.x, width, height]);
+        translate([0,0,pcb.z]) ccube([pcb.x, width, height-pcb.z]);
 
         // Cutouts for openings
         if (!enable_tail_extension) {
@@ -217,28 +221,26 @@ module rimWithAntenna() {
         // Board cutout in head extension
         if (enable_head_extension) {
             translate([
-                -1 * (pcb.x/2 + extension_space.x/2 - walls), 0, 0 
+                -1 * (pcb.x/2 + extension_space.x/2 + walls), 0, 0 
             ]) ccube([extension_space.x, extension_space.y, height]);
+
+            // Cutout for the ESP32 PCB in USB side
+            translate([
+                -1 * (pcb.x/2 + walls/2), 0, pcb.z 
+            ]) ccube([walls, extension_space.y, height-pcb.z]);
         }
         
         // Board cutout in tail extension
         if (enable_tail_extension) {
             translate([
-                pcb.x/2 + extension_space.x/2 - walls, 0, 0
+                pcb.x/2 + extension_space.x/2 + walls, 0, 0
             ]) ccube([extension_space.x, extension_space.y, height]);
+
+            // A small lip to keep the ESP32 PCB in place
+            translate([pcb.x/2 + walls/2, 0, pcb.z]) {
+                ccube([walls, extension_space.y, height-pcb.z]);
+            }
         }
-
-        // RJ45 cutout in head extension
-            if (enable_head_extension) {
-                translate([-1 * (pcb.x/2 + extension_space.x), 0, 0])
-                    ccube([walls*2, rj45_port_size.y, height]);
-            }
-
-            // RJ45 cutout in tail extension
-            if (enable_tail_extension) {
-                translate([pcb.x/2 + extension_space.x, 0, 0])
-                    ccube([walls*2, rj45_port_size.y, height]);
-            }
     }
 }
 
@@ -249,7 +251,7 @@ module rimWithAntenna() {
  * @param {bool} should the pins be completely covered?
  */
 module baseWithPins(cover) {
-    height = cover ? (pinrow.z + walls) : walls;
+    height = cover ? (max(pinrow.z, rj45_port_size.z) + walls) : walls;
     width = max(pcb.y, extension_space.y);
     pinmv = cover ? walls : pinrow.z/-2;
     liph = 2.3;
@@ -263,14 +265,14 @@ module baseWithPins(cover) {
                 
                 // Head extension base (antenna side)
                 if (enable_head_extension) {
-                    translate([-1 * (pcb.x/2 + extension_space.x/2), 0, 0])
-                        ccube([extension_space.x, width + walls*2, height]);
+                    translate([-1 * (pcb.x/2 + extension_space.x/2 + walls), 0, 0])
+                        ccube([extension_space.x + walls*2, width + walls*2, height]);
                 }
                 
                 // Tail extension base (USB side)
                 if (enable_tail_extension) {
-                    translate([pcb.x/2 + extension_space.x/2, 0, 0])
-                        ccube([extension_space.x, width + walls*2, height]);
+                    translate([pcb.x/2 + extension_space.x/2 + walls, 0, 0])
+                        ccube([extension_space.x + walls*2, width + walls*2, height]);
                 }
             }
             
@@ -285,65 +287,86 @@ module baseWithPins(cover) {
 
             // wire cutout
             translate([0, (pcb.y/2 - 5)/2 + 5, walls])
-                ccube([pinrow.x, pcb.y/2 - 5, 5]);
+                ccube([pinrow.x, pcb.y/2 - 5, pinrow.z-pinrow_hardpart]);
             translate([0, -1 *(pcb.y/2 - 5)/2 - 5, walls])
-                ccube([pinrow.x, pcb.y/2 - 5, 5]);
+                ccube([pinrow.x, pcb.y/2 - 5, pinrow.z-pinrow_hardpart]);
             
+            // wire cutout in head extension side
             if (enable_head_extension) {
                 translate([(pcb.x - pinrow.x)/2 - (wire_space/2) - (pcb.x/2), (pcb.y/2 - 5)/2 + 5, walls])
-                    ccube([wire_space + (pcb.x - pinrow.x), pcb.y/2 - 5, 15]);
+                    ccube([wire_space + (pcb.x - pinrow.x), pcb.y/2 - 5, pinrow.z-pinrow_hardpart]);
                 translate([(pcb.x - pinrow.x)/2 - (wire_space/2) - (pcb.x/2), -1 *(pcb.y/2 - 5)/2 - 5, walls])
-                    ccube([wire_space + (pcb.x - pinrow.x), pcb.y/2 - 5, 15]);
+                    ccube([wire_space + (pcb.x - pinrow.x), pcb.y/2 - 5, pinrow.z-pinrow_hardpart]);
             }
 
+            // wire cutout in tail extension side
             if (enable_tail_extension) {
                 translate([((pcb.x - pinrow.x)/2 - (wire_space/2) - (pcb.x/2))*-1, (pcb.y/2 - 5)/2 + 5, walls])
-                    ccube([wire_space + (pcb.x - pinrow.x), pcb.y/2 - 5, 15]);
+                    ccube([wire_space + (pcb.x - pinrow.x), pcb.y/2 - 5, pinrow.z-pinrow_hardpart]);
                 translate([((pcb.x - pinrow.x)/2 - (wire_space/2) - (pcb.x/2))*-1, -1 *(pcb.y/2 - 5)/2 - 5, walls])
-                    ccube([wire_space + (pcb.x - pinrow.x), pcb.y/2 - 5, 15]);
+                    ccube([wire_space + (pcb.x - pinrow.x), pcb.y/2 - 5, pinrow.z-pinrow_hardpart]);
             }
 
             // Debug
-            // ccube([pcb.x, pcb.y, walls]);
+            // ccube([pcb.x, width, walls]);
+            // if (enable_head_extension) {
+            //     translate([-1 * (pcb.x/2 + extension_space.x/2), 0, 0])
+            //         ccube([extension_space.x, width, walls]);
+            // }
+            // if (enable_tail_extension) {
+            //     translate([pcb.x/2 + extension_space.x/2, 0, 0])
+            //         ccube([extension_space.x, width, walls]);
+            // }
 
             // Board cutout in head extension
             if (enable_head_extension) {
-                translate([
-                    -1 * (pcb.x/2 +extension_space.x/2 - walls), 0, height - extension_space.z + rj45_pcb.z
-                ]) ccube([extension_space.x, extension_space.y, extension_space.z]);
+                difference() {
+                    translate([
+                        -1 * (pcb.x/2 +extension_space.x/2 + walls), 0, walls
+                    ]) ccube([extension_space.x, extension_space.y, height - walls]);
+
+                    // A small lip to keep the PCB in place
+                    translate([-1 * (pcb.x/2 + (extension_space.x - rj45_pcb.x) - (rj45_pcb_board_lip/2)), 0, walls]) {
+                        ccube([rj45_pcb_board_lip, extension_space.y, rj45_pcb.z]);
+                    }
+
+                    // A small lip to keep the PCB in place for the RJ45 port
+                    translate([-1 * (pcb.x/2 + extension_space.x + walls - walls/2), 0, walls + rj45_pcb.z + rj45_port_size.z]) {
+                        ccube([walls, rj45_port_size.y, 1]);
+                    }
+                }
             }
             
             // Board cutout in tail extension
             if (enable_tail_extension) {
-                translate([
-                    pcb.x/2 +extension_space.x/2 - walls, 0, height - extension_space.z + rj45_pcb.z
-                ]) ccube([extension_space.x, extension_space.y, extension_space.z]);
+                difference() {
+                    translate([
+                        pcb.x/2 +extension_space.x/2 + walls, 0, walls
+                    ]) ccube([extension_space.x, extension_space.y, height - walls]);
+
+                    // A small lip to keep the PCB in place
+                    translate([pcb.x/2 + (extension_space.x - rj45_pcb.x) - (rj45_pcb_board_lip/2), 0, walls]) {
+                        ccube([rj45_pcb_board_lip, extension_space.y, rj45_pcb.z]);
+                    }
+
+                    // A small lip to keep the PCB in place for the RJ45 port
+                    translate([pcb.x/2 + extension_space.x + walls - walls/2, 0, walls + rj45_pcb.z + rj45_port_size.z]) {
+                        ccube([walls, rj45_port_size.y, 1]);
+                    }
+                }
             }
 
             // RJ45 cutout in head extension
             if (enable_head_extension) {
-                translate([-1 * (pcb.x/2 + extension_space.x), 0, height - rj45_port_size.z + rj45_pcb.z + 3.2])
-                    ccube([walls*2, rj45_port_size.y, rj45_port_size.z]);
+                translate([-1 * (pcb.x/2 + extension_space.x + walls + walls/2), 0, walls + rj45_pcb.z])
+                    ccube([walls, rj45_port_size.y, rj45_port_size.z]);
             }
 
             // RJ45 cutout in tail extension
             if (enable_tail_extension) {
-                translate([pcb.x/2 + extension_space.x, 0, height - rj45_port_size.z + rj45_pcb.z + 3.2])
-                    ccube([walls*2, rj45_port_size.y, rj45_port_size.z]);
+                translate([pcb.x/2 + extension_space.x + walls + walls/2, 0, walls + rj45_pcb.z])
+                    ccube([walls, rj45_port_size.y, rj45_port_size.z]);
             }
-        }
-    }
-
-    // A small lip to keep the PCB in place
-    if (enable_head_extension) {
-        translate([-1 * (pcb.x/2 + (extension_space.x - rj45_pcb.x) - 5),0,-1 * extension_space.z + rj45_pcb.z]) {
-            ccube([10, extension_space.y, rj45_pcb.z]);
-        }
-    }
-
-    if (enable_tail_extension) {
-        translate([pcb.x/2 + (extension_space.x - rj45_pcb.x) - 5,0,-1 * extension_space.z + rj45_pcb.z]) {
-            ccube([10, extension_space.y, rj45_pcb.z]);
         }
     }
 }
@@ -366,14 +389,14 @@ module cover() {
             
             // Head extension cover (antenna side)
             if (enable_head_extension) {
-                translate([-1 * (pcb.x/2 + extension_space.x/2), 0, 0])
-                    ccube([extension_space.x, width + walls*2, walls]);
+                translate([-1 * (pcb.x/2 + extension_space.x/2 + walls), 0, 0])
+                    ccube([extension_space.x + walls*2, width + walls*2, walls]);
             }
             
             // Tail extension cover (USB side)
             if (enable_tail_extension) {
-                translate([pcb.x/2 + extension_space.x/2, 0, 0])
-                    ccube([extension_space.x, width + walls*2, walls]);
+                translate([pcb.x/2 + extension_space.x/2 + walls, 0, 0])
+                    ccube([extension_space.x + walls*2, width + walls*2, walls]);
             }
         }
         
@@ -431,37 +454,18 @@ module lip() {
 
                 // Head extension lip (antenna side)
                 if (enable_head_extension) {
-                    translate([-1 * (pcb.x/2 + extension_space.x/2), 0, 0])
+                    translate([-1 * (pcb.x/2 + extension_space.x/2 + walls), 0, 0])
                         ccube([extension_space.x-tolerance, width-tolerance, liph]);
-                    
-                    // Add four pillars at the corners of the head extension
-                    // pillar_height = rj45_port_size.z;
-                    // pillar_x_offset = extension_space.x/2 - pillar_diameter/2 - 1;
-                    // pillar_y_offset = pcb.y/2 - pillar_diameter/2 - 1;
-                    
-                    // translate([-1 * (pcb.x/2 + extension_space.x/2), 0, -1 * pillar_height]) {
-                    //     // Top-left pillar
-                    //     translate([-pillar_x_offset, pillar_y_offset, 0])
-                    //         cylinder(h=pillar_height, r=pillar_diameter/2);
-                        
-                    //     // Top-right pillar
-                    //     translate([pillar_x_offset, pillar_y_offset, 0])
-                    //         cylinder(h=pillar_height, r=pillar_diameter/2);
-                        
-                    //     // Bottom-left pillar
-                    //     translate([-pillar_x_offset, -pillar_y_offset, 0])
-                    //         cylinder(h=pillar_height, r=pillar_diameter/2);
-                        
-                    //     // Bottom-right pillar
-                    //     translate([pillar_x_offset, -pillar_y_offset, 0])
-                    //         cylinder(h=pillar_height, r=pillar_diameter/2);
-                    // }
+                    translate([-1 * (pcb.x/2 + walls/2), 0, 0])
+                        ccube([walls+tolerance, width-tolerance, liph]);
                 }
                 
                 // Tail extension lip (USB side)
                 if (enable_tail_extension) {
-                    translate([pcb.x/2 + extension_space.x/2, 0, 0])
+                    translate([pcb.x/2 + extension_space.x/2 + walls, 0, 0])
                         ccube([extension_space.x-tolerance, width-tolerance, liph]);
+                    translate([pcb.x/2 + walls/2, 0, 0])
+                        ccube([walls+tolerance, width-tolerance, liph]);
                 }
             }
             
@@ -470,31 +474,23 @@ module lip() {
             
             // Head extension inner cutout
             if (enable_head_extension) {
-                translate([-1 * (pcb.x/2 + extension_space.x/2), 0, 0])
+                translate([-1 * (pcb.x/2 + extension_space.x/2 + walls), 0, 0])
                     ccube([extension_space.x-tolerance-lipw, width-tolerance-lipw, liph]);
+                translate([-1 * (pcb.x/2 + tolerance + walls), 0, 0])
+                    ccube([walls*2, width-tolerance-lipw, liph]);
             }
             
             // Tail extension inner cutout
             if (enable_tail_extension) {
-                translate([pcb.x/2 + extension_space.x/2, 0, 0])
+                translate([pcb.x/2 + extension_space.x/2 + walls, 0, 0])
                     ccube([extension_space.x-tolerance-lipw, width-tolerance-lipw, liph]);
+                translate([pcb.x/2 + tolerance + walls, 0, 0])
+                    ccube([walls*2, width-tolerance-lipw, liph]);
             }
             
             // Cutouts for openings
-            translate([pcb.x/-2,0,0]) ccube([walls*2, antenna, liph]);
-            translate([pcb.x/2,0,0]) ccube([walls*2, usb, liph]);
-            
-            // RJ45 cutout in head extension
-            if (enable_head_extension) {
-                translate([-1 * (pcb.x/2 + extension_space.x), 0, 0])
-                    ccube([walls*2, rj45_port_size.y, liph]);
-            }
-            
-            // RJ45 cutout in tail extension
-            if (enable_tail_extension) {
-                translate([pcb.x/2 + extension_space.x, 0, 0])
-                    ccube([walls*2, rj45_port_size.y, liph]);
-            }
+            translate([-1 * (walls + pcb.x/2),0,0]) ccube([walls*4, antenna, liph]);
+            translate([walls + pcb.x/2,0,0]) ccube([walls*4, usb, liph]);
         }
     }
 }
