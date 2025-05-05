@@ -24,7 +24,7 @@ module honeycomb() {
         for (j = [-4:4]) {
             // Offset every other row for honeycomb effect
             translate([i*7 + (j%2)*3.5, j*6, 0])
-                cylinder(h=2, r=3, $fn=6, center=true); // Hexagonal holes
+                cylinder(h=height-2.5, r=3, $fn=6, center=true); // Hexagonal holes
         }
     }
     
@@ -115,8 +115,8 @@ difference() {
     
             // honeycomb();
             // Hole for LED diffuser
-            translate([0, 0, 0])
-                cylinder(h=20, d=50, center=true, $fn=60);
+            // translate([0, 0, 0])
+            //    cylinder(h=20, d=50, center=true, $fn=60);
         }
     }
     translate([8, -inner_size/2+0.4, 0])
